@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TOTAL PURGE MOBILE</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Segoe UI', sans-serif; touch-action: none; }
+        canvas { display: block; }
+        
+        /* UI игры */
+        #ui { position: absolute; top: 10px; left: 10px; pointer-events: none; z-index: 10; display: none; }
+        #hp-bar { width: 200px; height: 12px; background: #111; border: 2px solid #444; border-radius: 5px; overflow: hidden; }
+        #hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff4757, #990000); }
+        #stats { font-size: 18px; margin-top: 5px; text-shadow: 2px 2px #000; font-weight: bold; }
+        #ammo-ui { position: absolute; top: 10px; right: 10px; font-size: 20px; color: #f1c40f; display: none; font-weight: 900; }
+
+        /* Джойстик */
+        #joy-base { 
+            position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; 
+            background: rgba(255,255,255,0.1); border-radius: 50%; display: none; border: 2px solid rgba(255,255,255,0.2);
+        }
+        #joy-stick { 
+            position: absolute; top: 30px; left: 30px; width: 60px; height: 60px; 
+            background: #ff4757; border-radius: 50%; box-shadow: 0 0 15px #ff4757;
+        }
+
+        /* Меню выбора */
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .menu-container { background: rgba(20,20,20,0.9); padding: 15px; border-radius: 15px; border: 1px solid #333; display: flex; flex-direction: column; gap: 15px; width: 90%; max-width: 400px; }
+        h1 { color: #ff4757; letter-spacing: 5px; font-size: 30px; margin: 0 0 15px 0; }
+        .btn { background: #1a1a1a; border: 1px solid #444; padding: 10px; color: white; border-radius: 8px; font-size: 14px; transition: 0.3s; margin-bottom: 5px; width: 100%; }
+        .btn.active { background: #ff4757; border-color: #fff; box-shadow: 0 0 10px #ff4757; }
+        .start-btn { background: #fff; color: #000; font-weight: 900; font-size: 20px; margin-top: 20px; width: 100%; max-width: 400px; padding: 15px; border-radius: 50px; border: none; text-transform: uppercase; }
+        
+        #boss-ui { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); display: none; text-align: center; width: 80%; }
+        #boss-hp-bar { height: 10px; background: #111; border: 1px solid #ff0000; margin-top: 5px; }
+        #boss-fill { height: 100%; width: 100%; background: #ff0000; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div id="hp-bar"><div id="hp-fill"></div></div>
+    <div id="stats">УБИТО: 0</div>
+</div>
+<div id="ammo-ui">30 / 30</div>
+
+<div id="joy-base"><div id="joy-stick"></div></div>
+
+<div id="boss-ui">
+    <div style="color: #ff0000; font-weight: 900; font-size: 12px;">BOSS ALERT</div>
+    <div id="boss-hp-bar"><div id="boss-fill"></div></div>
+</div>
+
+<div class="overlay" id="menu">
+    <h1>TOTAL PURGE</h1>
+    <div class="menu-container">
+        <div>
+            <div style="font-size: 12px; color: #555; margin-bottom: 5px;">ГЕРОЙ</div>
+            <button class="btn active" id="hero-shooter" onclick="setHero('shooter')">СПЕЦНАЗ</button>
+            <button class="btn" id="hero-psycho" onclick="setHero('psycho')">ПСИХ</button>
+        </div>
+        <div id="weapon-select">
+            <div style="font-size: 12px; color: #555; margin-bottom: 5px;">ОРУЖИЕ</div>
+            <button class="btn active" id="w-ak" onclick="setWeapon('ak')">AK-47</button>
+            <button class="btn" id="w-rpg" onclick="setWeapon('rpg')">RPG-7</button>
+        </div>
+        <div>
+            <div style="font-size: 12px; color: #555; margin-bottom: 5px;">КАРТА</div>
+            <button class="btn active" id="map-waste" onclick="setMap('waste')">ПУСТОШЬ</button>
+            <button class="btn" id="map-abandon" onclick="setMap('abandon')">ЗАБРОШКА</button>
+        </div>
+    </div>
+    <button class="start-btn" onclick="start()">В БОЙ</button>
+</div>
+
+<canvas id="g"></canvas>
+
+<script>
+const canvas = document.getElementById('g'), ctx = canvas.getContext('2d');
+let active = false, frame = 0, kills = 0, bossActive = false;
+let config = { hero: 'shooter', weapon: 'ak', map: 'waste' };
+
+let player = { x: 1250, y: 1250, hp: 100, angle: 0, anim: 0, ammo: 30, maxAmmo: 30, reload: 0, radius: 35 };
+let zombies = [], particles = [], bloodSpots = [], walls = [], bullets = [];
+
+// Мобильное управление
+let joy = { active: false, x: 0, y: 0, dirX: 0, dirY: 0 };
+let isShooting = false;
+
+const imgs = { bg: new Image(), p: new Image(), z: new Image(), boss: new Image(), axe: new Image() };
+imgs.bg.src = 'background.jpg'; 
+imgs.p.src = 'player.png'; 
+imgs.z.src = 'zombie.png'; 
+imgs.boss.src = 'boss.png'; 
+imgs.axe.src = 'axe.png';
+
+function setHero(h) {
+    config.hero = h;
+    document.getElementById('hero-shooter').className = h=='shooter'?'btn active':'btn';
+    document.getElementById('hero-psycho').className = h=='psycho'?'btn active':'btn';
+    document.getElementById('weapon-select').style.display = h=='shooter'?'block':'none';
+    imgs.p.src = (h === 'shooter') ? 'player.png' : 'psycho.png';
+}
+function setWeapon(w) {
+    config.weapon = w;
+    document.getElementById('w-ak').className = w=='ak'?'btn active':'btn';
+    document.getElementById('w-rpg').className = w=='rpg'?'btn active':'btn';
+    player.maxAmmo = (w === 'ak') ? 30 : 1; player.ammo = player.maxAmmo;
+}
+function setMap(m) {
+    config.map = m;
+    document.getElementById('map-waste').className = m=='waste'?'btn active':'btn';
+    document.getElementById('map-abandon').className = m=='abandon'?'btn active':'btn';
+}
+
+function genWalls() {
+    walls = [];
+    if(config.map === 'abandon') {
+        for(let i=0; i<15; i++) walls.push({ x: Math.random()*2000+250, y: Math.random()*2000+250, w: 180, h: 180 });
+    }
+}
+
+function checkWall(px, py) {
+    if(px < 50 || px > 2450 || py < 50 || py > 2450) return true;
+    for(let w of walls) {
+        if(px + player.radius > w.x && px - player.radius < w.x + w.w && py + player.radius > w.y && py - player.radius < w.y + w.h) return true;
+    }
+    return false;
+}
+
+// TOUCH EVENTS
+window.addEventListener('touchstart', e => {
+    for(let t of e.touches) {
+        if(t.clientX < window.innerWidth / 2) {
+            joy.active = true;
+            joy.x = t.clientX; joy.y = t.clientY;
+            document.getElementById('joy-base').style.display = 'block';
+            document.getElementById('joy-base').style.left = (joy.x - 60) + 'px';
+            document.getElementById('joy-base').style.top = (joy.y - 60) + 'px';
+        } else {
+            isShooting = true;
+        }
+    }
+});
+
+window.addEventListener('touchmove', e => {
+    if(!joy.active) return;
+    for(let t of e.touches) {
+        if(t.clientX < window.innerWidth / 2) {
+            let dx = t.clientX - joy.x, dy = t.clientY - joy.y;
+            let dist = Math.hypot(dx, dy);
+            let max = 50;
+            if(dist > max) { dx *= max/dist; dy *= max/dist; }
+            document.getElementById('joy-stick').style.transform = `translate(${dx}px, ${dy}px)`;
+            joy.dirX = dx / max; joy.dirY = dy / max;
+            player.angle = Math.atan2(dy, dx);
+        }
+    }
+});
+
+window.addEventListener('touchend', e => {
+    if(e.touches.length === 0) { joy.active = false; isShooting = false; joy.dirX = 0; joy.dirY = 0; document.getElementById('joy-base').style.display = 'none'; }
+});
+
+function start() {
+    genWalls(); active = true;
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('ui').style.display = 'block';
+    if(config.hero === 'shooter') document.getElementById('ammo-ui').style.display = 'block';
+    loop();
+}
+
+function loop() {
+    if(!active) return; frame++;
+    
+    // Движение (джойстик)
+    let speed = 6.0;
+    let nextX = player.x + joy.dirX * speed;
+    let nextY = player.y + joy.dirY * speed;
+    if(!checkWall(nextX, player.y)) player.x = nextX;
+    if(!checkWall(player.x, nextY)) player.y = nextY;
+
+    // Стрельба / Атака
+    if(isShooting) {
+        if(config.hero === 'psycho' && frame % 20 === 0) {
+            player.anim = 10;
+            zombies.forEach(z => { if(Math.hypot(player.x-z.x, player.y-z.y) < 160) { z.hp -= 40; spawnBlood(z.x, z.y, 10, z.hp<=0); } });
+        }
+        if(config.hero === 'shooter' && player.ammo > 0 && player.reload <= 0) {
+            let rate = (config.weapon === 'ak') ? 8 : 60;
+            if(frame % rate === 0) {
+                bullets.push({ x:player.x, y:player.y, a:player.angle, s:15, type:config.weapon });
+                player.ammo--;
+                if(player.ammo <= 0) player.reload = 100;
+            }
+        }
+    }
+    if(player.reload > 0) { player.reload--; if(player.reload === 0) player.ammo = player.maxAmmo; }
+    if(player.anim > 0) player.anim--;
+
+    // Пули и Взрывы
+    bullets.forEach((b, bi) => {
+        b.x += Math.cos(b.a)*b.s; b.y += Math.sin(b.a)*b.s;
+        zombies.forEach(z => {
+            if(Math.hypot(b.x-z.x, b.y-z.y) < z.s/2) {
+                if(b.type === 'rpg') {
+                    for(let i=0; i<25; i++) particles.push({x:b.x, y:b.y, vx:(Math.random()-0.5)*20, vy:(Math.random()-0.5)*20, r:Math.random()*10+5, life:30, type:'fire', color:Math.random()>0.5?'#ff4500':'#ffae00'});
+                    zombies.forEach(t => { if(Math.hypot(b.x-t.x, b.y-t.y) < 200) { t.hp -= 200; spawnBlood(t.x, t.y, 10, t.hp<=0); } });
+                } else { z.hp -= 5; spawnBlood(z.x, z.y, 3, z.hp<=0); }
+                bullets.splice(bi, 1);
+            }
+        });
+        if(b.x<0||b.x>2500||b.y<0||b.y>2500) bullets.splice(bi, 1);
+    });
+
+    // Зомби и Босс
+    if(frame % 40 === 0 && zombies.length < 35) zombies.push({x:Math.random()*2400+50, y:Math.random()*2400+50, hp:10, s:70, type:'normal'});
+    if(kills >= 50 && !bossActive) { bossActive = true; document.getElementById('boss-ui').style.display='block'; zombies.push({x:1250, y:1250, hp:1500, maxHp:1500, s:220, type:'boss'}); }
+
+    zombies.forEach((z, i) => {
+        let a = Math.atan2(player.y-z.y, player.x-z.x);
+        let s = (z.type === 'boss') ? 2.2 : 3.2;
+        z.x += Math.cos(a)*s; z.y += Math.sin(a)*s;
+        if(z.hp <= 0) { if(z.type === 'boss') { bossActive=false; document.getElementById('boss-ui').style.display='none'; } zombies.splice(i,1); kills++; }
+        if(Math.hypot(player.x-z.x, player.y-z.y) < z.s/2.2) player.hp -= 0.6;
+        if(z.type === 'boss') document.getElementById('boss-fill').style.width = (z.hp/z.maxHp)*100+'%';
+    });
+
+    particles.forEach((p, i) => { p.x+=p.vx; p.y+=p.vy; p.life--; if(p.life<=0) particles.splice(i,1); });
+
+    draw();
+    if(player.hp > 0) requestAnimationFrame(loop); else location.reload();
+}
+
+function spawnBlood(x, y, count, isDead) {
+    for(let i=0; i<count; i++) particles.push({ x:x, y:y, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10, r:Math.random()*2+1, life:20, type:'blood' });
+    if(isDead) bloodSpots.push({ x:x, y:y, r:Math.random()*20+10, op:0.4 });
+}
+
+function draw() {
+    canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+    ctx.save(); ctx.translate(canvas.width/2-player.x, canvas.height/2-player.y);
+    
+    ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, 2500, 2500);
+    if(imgs.bg.complete) { ctx.globalAlpha = 0.3; ctx.drawImage(imgs.bg, 0, 0, 2500, 2500); ctx.globalAlpha = 1.0; }
+
+    bloodSpots.forEach(s => { ctx.fillStyle = `rgba(130, 0, 0, ${s.op})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill(); });
+    
+    walls.forEach(w => { ctx.fillStyle = "#2a2a2a"; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle="#444"; ctx.strokeRect(w.x, w.y, w.w, w.h); });
+
+    zombies.forEach(z => {
+        let img = (z.type === 'boss') ? imgs.boss : imgs.z;
+        ctx.drawImage(img, z.x-z.s/2, z.y-z.s/2, z.s, z.s);
+    });
+
+    bullets.forEach(b => { ctx.fillStyle = (b.type==='ak')?"#f1c40f":"#ff4500"; ctx.beginPath(); ctx.arc(b.x, b.y, (b.type==='ak'?3:8), 0, 7); ctx.fill(); });
+
+    ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle);
+    if(imgs.p.complete) ctx.drawImage(imgs.p, -40, -40, 80, 80);
+    if(config.hero === 'psycho') { ctx.save(); let swing = player.anim > 0 ? (player.anim * 0.3) : 0; ctx.rotate(0.6 - swing); ctx.drawImage(imgs.axe, 15, -40, 70, 70); ctx.restore(); }
+    ctx.restore();
+
+    particles.forEach(p => { ctx.fillStyle = p.color || "#aa0000"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); });
+    ctx.restore();
+
+    document.getElementById('hp-fill').style.width = player.hp + '%';
+    document.getElementById('stats').innerText = "УБИТО: " + kills;
+    document.getElementById('ammo-ui').innerText = player.reload > 0 ? "RELOAD" : player.ammo + "/" + player.maxAmmo;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TOTAL PURGE: Terminal</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #050505;
+            color: white;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        /* Фоновое свечение */
+        body::before {
+            content: '';
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: #ff4757;
+            filter: blur(180px);
+            opacity: 0.15;
+            z-index: -1;
+        }
+
+        .welcome-card {
+            background: rgba(15, 15, 15, 0.9);
+            padding: 40px 30px;
+            border-radius: 28px;
+            border: 1px solid #333;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            max-width: 480px;
+            width: 90%;
+            border-top: 1px solid #444;
+        }
+
+        h1 {
+            color: #ff4757;
+            letter-spacing: 8px;
+            margin: 0 0 5px 0;
+            text-transform: uppercase;
+            font-size: 32px;
+            text-shadow: 0 0 20px rgba(255, 71, 87, 0.4);
+        }
+
+        .greet {
+            font-size: 14px;
+            color: #777;
+            margin-bottom: 35px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Блок авторов */
+        .authors-section {
+            margin-bottom: 40px;
+            border-top: 1px solid #222;
+            padding-top: 30px;
+        }
+
+        h3 {
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-size: 12px;
+            margin-bottom: 25px;
+        }
+
+        .authors-grid {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+        }
+
+        .author-link {
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.3s ease;
+        }
+
+        .author-link:hover {
+            transform: translateY(-5px);
+        }
+
+        .author-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            position: relative; /* Для позиционирования ауры */
+        }
+
+        /* --- НОВАЯ АНИМИРОВАННАЯ АУРА --- */
+        .aura-wrapper {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .aura-effect {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, transparent, #ff4757, transparent, #ff4757);
+            animation: rotateAura 3s linear infinite;
+            filter: blur(8px);
+            opacity: 0.6;
+            transition: opacity 0.3s ease, filter 0.3s ease;
+        }
+
+        /* Разные цвета для авторов */
+        .aura-hearvys { background: conic-gradient(from 0deg, transparent, #ff4757, #ff6b81, transparent); }
+        .aura-gemini { background: conic-gradient(from 0deg, transparent, #3498db, #2ecc71, transparent); }
+
+        .author-link:hover .aura-effect {
+            opacity: 1;
+            filter: blur(12px);
+            animation-duration: 1.5s; /* Ускоряем при наведении */
+        }
+
+        @keyframes rotateAura {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        /* ------------------------------- */
+
+        .author-avatar {
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            background: #000;
+            overflow: hidden;
+            position: relative;
+            z-index: 2; /* Над аурой */
+            border: 2px solid #222;
+        }
+
+        .author-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .author-name {
+            font-weight: bold;
+            font-size: 16px;
+            color: #eee;
+            margin-bottom: 4px;
+        }
+
+        .author-role {
+            font-size: 11px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Статус системы */
+        .status-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 12px;
+            margin: 30px 0;
+            border: 1px solid #222;
+            font-size: 14px;
+        }
+
+        #device-text {
+            font-weight: bold;
+            color: #2ecc71;
+            text-transform: uppercase;
+        }
+
+        /* Кнопка запуска */
+        .btn {
+            display: block;
+            background: #fff;
+            color: #000;
+            text-decoration: none;
+            padding: 18px;
+            border-radius: 14px;
+            font-weight: 900;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .btn:hover {
+            background: #ff4757;
+            color: #fff;
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(255, 71, 87, 0.4);
+        }
+
+        @media (max-width: 450px) {
+            .authors-grid { gap: 20px; }
+            .aura-wrapper { width: 85px; height: 85px; }
+            .author-avatar { width: 72px; height: 72px; }
+            h1 { font-size: 26px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="welcome-card">
+    <h1>TOTAL PURGE</h1>
+    <div class="greet">System Initialization...</div>
+    
+    <div class="authors-section">
+        <h3>КОМАНДА РАЗРАБОТКИ</h3>
+        <div class="authors-grid">
+            
+            <a href="profile.html?user=hearvys" class="author-link">
+                <div class="author-card">
+                    <div class="aura-wrapper">
+                        <div class="aura-effect aura-hearvys"></div>
+                        <div class="author-avatar">
+                            <img src="author_player.png" alt="HearvyS">
+                        </div>
+                    </div>
+                    <div class="author-name">HearvyS</div>
+                    <div class="author-role">Lead Designer</div>
+                </div>
+            </a>
+
+            <a href="profile.html?user=gemini" class="author-link">
+                <div class="author-card">
+                    <div class="aura-wrapper">
+                        <div class="aura-effect aura-gemini"></div>
+                        <div class="author-avatar">
+                            <img src="author_ai.png" alt="Gemini AI">
+                        </div>
+                    </div>
+                    <div class="author-name">Gemini AI</div>
+                    <div class="author-role">Code & Logic</div>
+                </div>
+            </a>
+
+        </div>
+    </div>
+
+    <div class="status-box">
+        ДЕТЕКТОР СИСТЕМЫ: <span id="device-text">ОПРЕДЕЛЕНИЕ...</span>
+    </div>
+
+    <div id="action-area"></div>
+</div>
+
+<script>
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                     (window.innerWidth <= 800 && 'ontouchstart' in window);
+
+    const deviceSpan = document.getElementById('device-text');
+    const actionArea = document.getElementById('action-area');
+
+    setTimeout(() => {
+        if (isMobile) {
+            deviceSpan.innerText = "MOBILE UNIT";
+            actionArea.innerHTML = '<a href="index_mobile.html" class="btn">ИНИЦИИРОВАТЬ БОЙ</a>';
+        } else {
+            deviceSpan.innerText = "PC STATION";
+            actionArea.innerHTML = '<a href="index_pc.html" class="btn">ИНИЦИИРОВАТЬ БОЙ</a>';
+        }
+    }, 1000);
+</script>
+
+</body>
+</html>
